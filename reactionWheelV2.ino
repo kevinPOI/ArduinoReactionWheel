@@ -47,11 +47,11 @@ volatile unsigned long int left_encoder_b_count = 0;
 volatile unsigned long int right_encoder_a_count = 0;
 volatile unsigned long int right_encoder_b_count = 0;
 bool go = false;  /* motor enable */
-bool direction_cw = true; //keep track of direction, so that when switch direction we can pulse
+bool direction_cw = true; //keep track of direction, so that when switch direction we can pause
 bool jump = false; //jump-up mode
 int jump_counter = 0;
 int avg_movement = 0;
-#define JUMP_COUNTER_MAX 150 //if full-powered for x cycles without angle change, enable jump-up. Must be multiple of 5 
+#define JUMP_COUNTER_MAX 250 //if full-powered for x cycles without angle change, enable jump-up. Must be multiple of 5 
 // Encoder readings: these can be positive or negative.
 long left_angle = 0;
 long right_angle = 0;
@@ -410,18 +410,19 @@ State estimation part */
       if ( command < -MAX_COMMAND )
         command = -MAX_COMMAND;
       //Jump up part//////////////////////////////////////////////////////////////////////////////////////
-      if(command == abs(MAX_COMMAND) && avg_movement < 300){//if full power yet not moving
+      if(command == abs(MAX_COMMAND) && avg_movement < 400 && jump==false){//if full power yet not moving
         jump_counter ++; 
         if( jump_counter > JUMP_COUNTER_MAX){
-          jump_counter = 30;//reverse-rev continue for 30 ticks
+          jump_counter = 130;//reverse-rev continue for 130 ticks
           jump = true;
         }
-      }
-      if(jump == true){//reverse-rev motor before jumpup to generate greater change angular momentum
+      }else if(jump == true){//reverse-rev motor before jumpup to generate greater change angular momentum
         jump_counter -= 1;
         if(command > 0)command = -75;
         else command = 75;
-        if(jump_counter <0) jump == false;
+        if(jump_counter <0) jump = false;
+      }else{
+	jump = 0;
       }
       Serial.print("command");
       Serial.println(command);
