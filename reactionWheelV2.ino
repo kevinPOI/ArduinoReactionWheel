@@ -31,7 +31,7 @@ Estimate body angle (in accelerometer Y units)
 
 #define DEBUG_PRINT_INTERVAL 500 // milliseconds, 
 
-#define MAX_COMMAND 220
+#define MAX_COMMAND 250
 
 // #define PI 3.141592653589793
 #define ENCODER_TO_RADIANS 0.004027682889218
@@ -81,6 +81,8 @@ int last_body_angle = 0;
 int last_gxx = 0; // last X gyro reading
 int last_gzz = 0; // last X gyro reading
 
+int estimate_motor_speed;//range +- 250, 250=full rpm
+float discount_rate = 0.05
 
 
 // Keep track of late control cycles. 
@@ -366,22 +368,14 @@ State estimation part */
       last_gzz = gzz;
       last_body_angle = body_angle; //moved this after command calculation for ease of jump up part
       int body_angular_velocity = gzz;
-      Serial.print("axx is");
-      Serial.print(axx);
-      Serial.print("angle is:");
-      //long dist = left_encoder.read();
-      Serial.print(body_angle);
-      //Serial.print(" dist is:");
-      //Serial.println(dist);
+      // Serial.print("axx is");
+      // Serial.print(axx);
+      // Serial.print("angle is:");
+      // //long dist = left_encoder.read();
+      // Serial.print(body_angle);
+      // //Serial.print(" dist is:");
+      // //Serial.println(dist);
 
-/*****************************************
-
-//    if ( run_time >= move_time )
-
-/*
-      float left_error = left_angle_radians - angle_desired;
-      float right_error = right_angle_radians - angle_desired;
-*/  
 
       long command_long = 0;
      
@@ -397,12 +391,16 @@ State estimation part */
           command_long = command_long >> 8;
           
         }
+      
       float clf = command_long;
+      //try linearize output torque, accout for lower torque when motor speed is high
+      estimate_motor_speed = (1-discount_rate)*estimate_motor_speed + discount_rate*clf;
       if(clf > 0){
-        clf = pow(clf, 0.85);
+        clf = pow(clf, 0.9 + 0.1 * estimate_motor_speed / MAX_COMMAND);
       }else{
-        clf = -pow(-clf, 0.85);
+        clf = -pow(clf, 0.9 + 0.1 * estimate_motor_speed / MAX_COMMAND);
       }
+      estimate_motor_speed = (1-discount_rate)*estimate_motor_speed + discount_rate*clf;
       int command = (int) clf;
 
       if ( command > MAX_COMMAND )
